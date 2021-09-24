@@ -11,11 +11,50 @@ then
   abort "Bash is required to interpret this script."
 fi
 
+is_true() {
+  [[ "$1" =~ (yes|Yes|YES|true|True|TRUE) ]]
+}
+
+is_false() {
+  [[ "$1" =~ (no|No|NO|false|False|FALSE) ]]
+}
+
+# Allow literal values for CI (yes, true, 1)
+if [[ "${CI-}" == "1" ]] || is_true "${CI-}"
+then
+  CI=1 # convert "true" literal values to '1' (non-empty)
+else
+  unset CI # do not accept other values
+fi
+
+# Allow literal values for NONINTERACTIVE (yes, true, 1)
+if [[ "${NONINTERACTIVE-}" == "1" ]] || is_true "${NONINTERACTIVE-}"
+then
+  NONINTERACTIVE=1 # convert "true" literal values to '1' (non-empty)
+else
+  unset NONINTERACTIVE # do not accept other values
+fi
+
+# Allow literal values for HAVE_SUDO_ACCESS (no/false/1 for non-sudo, otherwise we ask for a password)
+# This is the return value of function have_sudo_access() (1 for fail, 0 for success)
+if [[ "${HAVE_SUDO_ACCESS-}" == "1" ]] || is_false "${HAVE_SUDO_ACCESS-}"
+then
+  HAVE_SUDO_ACCESS=1 # convert "false" literal values to '1' (fail)
+else
+  unset HAVE_SUDO_ACCESS # we will check sudo permissions later in function have_sudo_access()
+fi
+
 # Check if script is run non-interactively (e.g. CI)
 # If it is run non-interactively we should not prompt for passwords.
 if [[ ! -t 0 || -n "${CI-}" ]]
 then
   NONINTERACTIVE=1
+fi
+
+# Always ask for passwords in interactive mode.
+if [[ -z "${NONINTERACTIVE-}" ]]
+then
+  unset HAVE_SUDO_ACCESS
 fi
 
 # First check OS.
